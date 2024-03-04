@@ -1,7 +1,7 @@
 [![Multi-Modality](agorabanner.png)](https://discord.gg/qUtxnK2NMf)
 
 # Vision LLama
-Implementation of VisionLLaMA from the paper: "VisionLLaMA: A Unified LLaMA Interface for Vision Tasks" in PyTorch and Zeta.
+Implementation of VisionLLaMA from the paper: "VisionLLaMA: A Unified LLaMA Interface for Vision Tasks" in PyTorch and Zeta. [PAPER LINK](https://arxiv.org/abs/2403.00522)
 
 
 ## install
@@ -32,3 +32,21 @@ print(model(x))
 
 # License
 MIT
+
+## Citation
+```bibtex
+@misc{chu2024visionllama,
+    title={VisionLLaMA: A Unified LLaMA Interface for Vision Tasks}, 
+    author={Xiangxiang Chu and Jianlin Su and Bo Zhang and Chunhua Shen},
+    year={2024},
+    eprint={2403.00522},
+    archivePrefix={arXiv},
+    primaryClass={cs.CV}
+}
+```
+
+## todo
+- [ ] Implement the AS2DRoPE rope
+- [ ] Implement the GSA attention
+
+
