@@ -1,6 +1,23 @@
-import torch
 from torch import nn, Tensor
-from zeta.nn import SwiGLUStacked, MultiQueryAttention, img_to_text
+from zeta.nn import (
+    SwiGLUStacked,
+    MultiQueryAttention,
+    img_to_text,
+)
+
+
+class AS2DRoPE(nn.Module):
+    def __init__(
+        self,
+        dim: int,
+        channels: int,
+    ):
+        super().__init__()
+        self.dim = dim
+        self.channels = channels
+
+    def forward(self, x: Tensor) -> Tensor:
+        pass
 
 
 class VisionLlamaBlock(nn.Module):
@@ -95,10 +112,3 @@ class VisionLlamaBlock(nn.Module):
         print(x.shape)
 
         return x + skip_2
-
-
-x = torch.randn(1, 3, 224, 224)
-model = VisionLlamaBlock(768, 12, 3, 12)
-print(model(x).shape)
-
-print(model(x))
