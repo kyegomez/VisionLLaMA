@@ -1,4 +1,4 @@
-import torch 
+import torch
 from vision_llama.main import VisionLlamaPyramidBlock
 
 # Create a random tensor of shape (1, 3, 224, 224)
