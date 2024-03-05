@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "vision-llama"
-version = "0.0.3"
+version = "0.0.5"
 description = "Vision Llama - Pytorch"
 license = "MIT"
 authors = ["Kye Gomez <kye@apac.ai>"]
@@ -27,6 +27,7 @@ swarms = "*"
 zetascale = "*"
 torch = "*"
 torchvision = "*"
+einops = "*"
 
 [tool.poetry.group.lint.dependencies]
 ruff = "^0.1.6"
