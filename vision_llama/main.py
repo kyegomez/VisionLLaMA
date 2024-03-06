@@ -6,7 +6,7 @@ from zeta.nn import (
     MultiQueryAttention,
 )
 from local_attention import LocalAttention
-from einops import rearrange, repeat
+from einops import rearrange, repeat, reduce
 from einops.layers.torch import Rearrange
 from math import sqrt, pi
 
@@ -529,5 +529,8 @@ class VisionLlama(nn.Module):
             print(f"x: {x.shape}")
 
         x = self.to_latent(x)
+        
+        # Reduce
+        x = reduce(x, "b n d -> b d", "mean")
 
         return self.output_head(x)

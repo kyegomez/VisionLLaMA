@@ -11,4 +11,8 @@ model = VisionLlama(
 
 
 # Print the shape of the output tensor when x is passed through the model
-print(model(x))
+out = model(x)
+
+print(out)
+
+print(out.shape)
