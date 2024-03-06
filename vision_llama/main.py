@@ -468,7 +468,7 @@ class VisionLlama(nn.Module):
 
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
-        (image_height // patch_height) * (image_width // patch_width)
+        # (image_height // patch_height) * (image_width // patch_width)
         patch_dim = channels * patch_height * patch_width
 
         # Layers
