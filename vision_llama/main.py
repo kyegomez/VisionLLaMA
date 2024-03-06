@@ -9,11 +9,14 @@ from local_attention import LocalAttention
 from einops import rearrange, repeat, reduce
 from einops.layers.torch import Rearrange
 from math import sqrt, pi
-
+import torch.nn.functional as F
+from vision_llama.gsa import GSA
 
 # Pair
 def pair(t):
     return t if isinstance(t, tuple) else (t, t)
+
+
 
 
 class AS2DRoPE:
@@ -347,6 +350,12 @@ class VisionLlamaPyramidBlock(nn.Module):
 
         # As2drope
         self.as2drope = AS2DRoPE(dim)
+        
+        
+        # Global Subsampled Attention
+        self.gsa = GSA(
+            dim,
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         # b, c, h, w = x.shape
@@ -382,7 +391,9 @@ class VisionLlamaPyramidBlock(nn.Module):
         x, _ = self.rotary_embed(x)
 
         # Global Attention
-        x, _, _ = self.attn(x)
+        # x, _, _ = self.attn(x)
+        x = self.gsa(x)
+        print(x.shape)
         x = x + skip_1
 
         # residual connection

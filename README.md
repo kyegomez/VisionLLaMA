@@ -46,6 +46,6 @@ MIT
 ```
 
 ## todo
-- [ ] Implement the AS2DRoPE rope
-- [ ] Implement the GSA attention
+- [ ] Implement the AS2DRoPE rope, might just use axial rotary embeddings instead, my implementation is really bad
+- [x] Implement the GSA attention, i implemented it but's bad
 
