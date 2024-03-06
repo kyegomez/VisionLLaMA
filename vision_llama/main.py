@@ -1,3 +1,4 @@
+import math
 import torch
 from torch import nn, Tensor
 from zeta.nn import (
@@ -15,18 +16,101 @@ def pair(t):
     return t if isinstance(t, tuple) else (t, t)
 
 
-class AS2DRoPE(nn.Module):
-    def __init__(
-        self,
-        dim: int,
-        channels: int,
-    ):
-        super().__init__()
-        self.dim = dim
-        self.channels = channels
+class AS2DRoPE:
+    def __init__(self, dim, anchor_resolution: int = 56):
+        """
+        Initialize the AS2DRoPE class for 3D input (BATCH, SEQLENGTH, Dimension).
 
-    def forward(self, x: Tensor) -> Tensor:
-        pass
+        Args:
+        dim (int): The dimensionality of the model.
+        anchor_resolution (int): The anchor resolution B used during training.
+        """
+        self.dim = dim
+        self.anchor_resolution = anchor_resolution
+        self.theta = self._get_theta(dim)
+
+    def _get_theta(self, dim):
+        """
+        Calculate the theta values for the sin and cos functions based on the model dimensionality.
+
+        Args:
+        dim (int): The dimensionality of the model.
+
+        Returns:
+        torch.Tensor: The theta values.
+        """
+        theta = torch.tensor(
+            [10000 ** (-2 * (i // 2) / dim) for i in range(dim)]
+        )
+        return theta
+
+    def _get_positional_matrix(self, i, j, H):
+        """
+        Generate the positional matrix for a specific position and input resolution.
+
+        Args:
+        i (int): The row position.
+        j (int): The column position.
+        H (int): The current resolution H of the input image.
+
+        Returns:
+        torch.Tensor: The positional matrix R_i,j.
+        """
+        position_i = (i * self.anchor_resolution / H).float()
+        position_j = (j * self.anchor_resolution / H).float()
+
+        theta_i = self.theta * position_i
+        theta_j = self.theta * position_j
+
+        cos_i = torch.cos(theta_i)
+        sin_i = torch.sin(theta_i)
+
+        cos_j = torch.cos(theta_j)
+        sin_j = torch.sin(theta_j)
+
+        R_i = torch.eye(self.dim)
+        R_j = torch.eye(self.dim)
+
+        R_i[0::2, 0::2] = cos_i
+        R_i[1::2, 1::2] = cos_i
+        R_i[0::2, 1::2] = -sin_i
+        R_i[1::2, 0::2] = sin_i
+
+        R_j[2::4, 2::4] = cos_j
+        R_j[3::4, 3::4] = cos_j
+        R_j[2::4, 3::4] = -sin_j
+        R_j[3::4, 2::4] = sin_j
+
+        R = (
+            R_i * R_j
+        )  # Element-wise multiplication for combining the matrices
+        return R
+
+    def forward(self, x: Tensor, H: int):
+        """
+        Apply the AS2DRoPE encoding to the input tensor.
+
+        Args:
+        x (torch.Tensor): The input tensor with shape [batch_size, seq_length, dim].
+        H (int): The side length of the square resolution of the input image.
+
+        Returns:
+        torch.Tensor: The positionally encoded tensor.
+        """
+        B, L, _ = x.shape
+        H_sqrt = int(math.sqrt(L))  # Assuming L is a perfect square
+        encoded_x = torch.zeros_like(x)
+
+        # Convert linear sequence positions back to 2D grid positions
+        for pos in range(L):
+            i = pos // H_sqrt
+            j = pos % H_sqrt
+            R_ij = self._get_positional_matrix(
+                torch.tensor(i), torch.tensor(j), torch.tensor(H)
+            )
+            encoded_x[:, pos, :] = torch.matmul(x[:, pos, :], R_ij)
+
+        return encoded_x
 
 
 class AxialRotaryEmbedding(nn.Module):
@@ -153,27 +237,21 @@ class VisionLlamaBlock(nn.Module):
 
         # Patch Embedding
         x = self.to_patch_embedding(x)
-        print(x.shape)
 
         # Reshape to text
         # x = img_to_text(x, self.channels, self.dim)
-        print(x.shape)
 
         skip_1 = x
-        print(x.shape)
 
         # Norm
         x = self.norm(x)
-        print(x.shape)
 
         # as2d rope
         x, _ = self.axial_rotary(x)
-        print(x.shape)
 
         # Attn
         x, _, _ = self.attn(x)
         x = x + skip_1
-        print(x.shape)
 
         # norm
         x = self.norm(x)
@@ -182,7 +260,6 @@ class VisionLlamaBlock(nn.Module):
 
         # SWIGLU
         x = self.act(x)
-        print(x.shape)
 
         return x + skip_2
 
@@ -286,14 +363,14 @@ class VisionLlamaPyramidBlock(nn.Module):
             nn.Linear(patch_dim, dim),
         )
 
+        # As2drope
+        self.as2drope = AS2DRoPE(dim)
+
     def forward(self, x: Tensor) -> Tensor:
         b, c, h, w = x.shape
 
         # Patch Embedding
         x = self.to_patch_embedding(x)
-
-        # Convert image to text
-        # x = img_to_text(x, self.channels, self.dim)
 
         # Skip connection
         skip_1 = x
