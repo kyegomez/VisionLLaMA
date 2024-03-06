@@ -502,8 +502,14 @@ class VisionLlama(nn.Module):
 
         # Output head
         self.output_head = nn.Sequential(
-            nn.LayerNorm(dim), nn.Linear(dim, num_classes)
+            nn.LayerNorm(dim),
+            # Global average pooling before the classification head
+            nn.AdaptiveAvgPool1d(dim),
+            nn.Linear(dim, num_classes), 
+            
         )
+        
+        
 
     def forward(self, x: Tensor) -> Tensor:
         print(f"x: {x.shape}")
@@ -518,7 +524,7 @@ class VisionLlama(nn.Module):
         # Cls tokens
         cls_tokens = repeat(self.cls_token, "() n d -> b n d", b=b)
         print(f"cls_tokens: {cls_tokens.shape}")
-        # x = torch.cat((cls_tokens, x), dim=1)
+        # x = torch.cat((cls_tokens, x), dim=0)
         print(f"x: {x.shape}")
 
         # Dropout
