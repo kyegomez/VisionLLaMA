@@ -12,18 +12,18 @@ Implementation of VisionLLaMA from the paper: "VisionLLaMA: A Unified LLaMA Inte
 ```python
 
 import torch
-from vision_llama import VisionLlamaBlock
+from vision_llama.main import VisionLlama
 
-# Create a random tensor of shape (1, 3, 224, 224)
+# Forward Tensor
 x = torch.randn(1, 3, 224, 224)
 
 # Create an instance of the VisionLlamaBlock model with the specified parameters
-model = VisionLlamaBlock(768, 12, 3, 12)
+model = VisionLlama(
+    dim=768, depth=12, channels=3, heads=12, num_classes=1000
+)
+
 
 # Print the shape of the output tensor when x is passed through the model
-print(model(x).shape)
-
-# Print the output tensor when x is passed through the model
 print(model(x))
 
 ```
@@ -48,5 +48,4 @@ MIT
 ## todo
 - [ ] Implement the AS2DRoPE rope
 - [ ] Implement the GSA attention
-
 
