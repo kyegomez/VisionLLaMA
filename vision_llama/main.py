@@ -114,6 +114,16 @@ class AS2DRoPE:
 
 
 class AxialRotaryEmbedding(nn.Module):
+    """
+    Axial Rotary Embedding module.
+
+    This module performs axial rotary embedding on the input tensor.
+
+    Args:
+        dim (int): The dimension of the input tensor.
+        max_freq (int, optional): The maximum frequency for scaling. Defaults to 10.
+    """
+
     def __init__(self, dim, max_freq=10):
         super().__init__()
         self.dim = dim
@@ -200,7 +210,7 @@ class VisionLlamaBlock(nn.Module):
 
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
-        patch_dim = channels * patch_height * patch_width
+        channels * patch_height * patch_width
 
         # Norm
         self.norm = nn.LayerNorm(dim)
@@ -222,25 +232,7 @@ class VisionLlamaBlock(nn.Module):
         # AxialRotaryEmbedding
         self.axial_rotary = AxialRotaryEmbedding(dim)
 
-        # To patch embeddings
-        self.to_patch_embedding = nn.Sequential(
-            Rearrange(
-                "b c (h p1) (w p2) -> b (h w) (p1 p2 c)",
-                p1=patch_height,
-                p2=patch_width,
-            ),
-            nn.Linear(patch_dim, dim),
-        )
-
     def forward(self, x: Tensor) -> Tensor:
-        b, c, h, w = x.shape
-
-        # Patch Embedding
-        x = self.to_patch_embedding(x)
-
-        # Reshape to text
-        # x = img_to_text(x, self.channels, self.dim)
-
         skip_1 = x
 
         # Norm
@@ -320,7 +312,7 @@ class VisionLlamaPyramidBlock(nn.Module):
         # Image height
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
-        patch_dim = channels * patch_height * patch_width
+        channels * patch_height * patch_width
 
         # Layernorm
         self.norm = nn.LayerNorm(dim)
@@ -353,24 +345,14 @@ class VisionLlamaPyramidBlock(nn.Module):
             # use_xpos=True,
         )
 
-        # To patch embeddings
-        self.to_patch_embedding = nn.Sequential(
-            Rearrange(
-                "b c (h p1) (w p2) -> b (h w) (p1 p2 c)",
-                p1=patch_height,
-                p2=patch_width,
-            ),
-            nn.Linear(patch_dim, dim),
-        )
-
         # As2drope
         self.as2drope = AS2DRoPE(dim)
 
     def forward(self, x: Tensor) -> Tensor:
-        b, c, h, w = x.shape
+        # b, c, h, w = x.shape
 
         # Patch Embedding
-        x = self.to_patch_embedding(x)
+        # x = self.to_patch_embedding(x)
 
         # Skip connection
         skip_1 = x
@@ -415,3 +397,137 @@ class VisionLlamaPyramidBlock(nn.Module):
         # Skip connection
 
         return x
+
+
+class VisionLlama(nn.Module):
+    """
+    VisionLlamaPyramidTransformer is a PyTorch module that implements a pyramid transformer for vision tasks.
+
+    Args:
+        dim (int): The dimension of the input and output tensors.
+        depth (int): The number of pyramid blocks in the transformer.
+        channels (int): The number of input channels.
+        heads (int): The number of attention heads in each pyramid block.
+        dim_head (int, optional): The dimension of each attention head. Defaults to 64.
+        mlp_mult (int, optional): The multiplier for the hidden dimension in the MLP layers. Defaults to 4.
+        dropout (float, optional): The dropout probability. Defaults to 0.0.
+        local_window_size (int, optional): The size of the local window for local attention. Defaults to 512.
+        image_size (int, optional): The size of the input image. Defaults to 224.
+        patch_size (int, optional): The size of each patch in the image. Defaults to 16.
+
+    Attributes:
+        dim (int): The dimension of the input and output tensors.
+        depth (int): The number of pyramid blocks in the transformer.
+        channels (int): The number of input channels.
+        heads (int): The number of attention heads in each pyramid block.
+        dim_head (int): The dimension of each attention head.
+        mlp_mult (int): The multiplier for the hidden dimension in the MLP layers.
+        dropout (float): The dropout probability.
+        blocks (nn.ModuleList): A list of VisionLlamaPyramidBlock instances representing the pyramid blocks.
+
+    """
+
+    def __init__(
+        self,
+        dim: int,
+        depth: int,
+        channels: int,
+        heads: int,
+        dim_head: int = 64,
+        mlp_mult: int = 4,
+        dropout: float = 0.1,
+        local_window_size: int = 512,
+        image_size: int = 224,
+        patch_size: int = 16,
+        emb_dropout: float = 0.1,
+        num_classes: int = 10000,
+        *args,
+        **kwargs,
+    ):
+        super().__init__()
+        self.dim = dim
+        self.depth = depth
+        self.channels = channels
+        self.heads = heads
+        self.dim_head = dim_head
+        self.mlp_mult = mlp_mult
+        self.dropout = dropout
+        self.emb_dropout = emb_dropout
+        self.num_classes = num_classes
+
+        image_height, image_width = pair(image_size)
+        patch_height, patch_width = pair(patch_size)
+        (image_height // patch_height) * (image_width // patch_width)
+        patch_dim = channels * patch_height * patch_width
+
+        # Layers
+        self.blocks = nn.ModuleList(
+            [
+                VisionLlamaPyramidBlock(
+                    dim,
+                    depth,
+                    channels,
+                    heads,
+                    dim_head,
+                    mlp_mult,
+                    dropout,
+                    local_window_size,
+                    image_size,
+                    patch_size,
+                    *args,
+                    **kwargs,
+                )
+                for _ in range(depth)
+            ]
+        )
+
+        # To patch embeddings
+        self.to_patch_embedding = nn.Sequential(
+            Rearrange(
+                "b c (h p1) (w p2) -> b (h w) (p1 p2 c)",
+                p1=patch_height,
+                p2=patch_width,
+            ),
+            nn.Linear(patch_dim, dim),
+        )
+
+        # Dropout
+        self.dropout = nn.Dropout(emb_dropout)
+
+        # Class token
+        self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
+
+        # Latent
+        self.to_latent = nn.Identity()
+
+        # Output head
+        self.output_head = nn.Sequential(
+            nn.LayerNorm(dim), nn.Linear(dim, num_classes)
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        print(f"x: {x.shape}")
+
+        # Patch Embedding
+        x = self.to_patch_embedding(x)
+        print(x.shape)
+
+        # Shape
+        b, n, _ = x.shape
+
+        # Cls tokens
+        cls_tokens = repeat(self.cls_token, "() n d -> b n d", b=b)
+        print(f"cls_tokens: {cls_tokens.shape}")
+        # x = torch.cat((cls_tokens, x), dim=1)
+        print(f"x: {x.shape}")
+
+        # Dropout
+        x = self.dropout(x)
+
+        for block in self.blocks:
+            x = block(x)
+            print(f"x: {x.shape}")
+
+        x = self.to_latent(x)
+
+        return self.output_head(x)
